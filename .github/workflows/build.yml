@@ -1,0 +1,147 @@
+name: Build
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install dependencies
+      run: sudo apt-get install git gcc g++ binutils bzip2 flex python3 perl make grep unzip rsync wget gawk subversion libz-dev libc-dev libncurses-dev
+    - uses: actions/checkout@v2
+
+    # build OpenWRT
+    - name: Update package definitions
+      run: ./scripts/feeds update -a
+    - name: Install package symlinks
+      run: ./scripts/feeds install -a
+
+    # to change the default config, use the following process:
+    # - copy pre-configured config as main config
+    #   cp .github/workflows/config.buildinfo .config
+    # - edit configuration using menuconfig
+    #   make menuconfig
+    # - keep only non default options
+    #   ./scripts/diffconfig.sh > .github/workflows/config.buildinfo
+    - name: Retrieve default configuration for Turris Omnia
+      run: cp .github/workflows/config.buildinfo .config
+    - name: Expand configuration from default configuration
+      run: make defconfig
+
+    - name: Build OpenWRT
+      id: compile
+      run: make -j$(nproc) download world #execute "download" to first download sources then execute the top command "world", see here https://openwrt.org/docs/techref/buildroot
+
+    # store images
+    - name: Store medkit
+      uses: actions/upload-artifact@v2
+      with:
+        name: omnia-medkit-openwrt-mvebu-cortexa9-cznic_turris-omnia-initramfs.tar.gz
+        path: bin/targets/mvebu/cortexa9/omnia-medkit-openwrt-mvebu-cortexa9-cznic_turris-omnia-initramfs.tar.gz
+
+    - name: Store initramfs kernel
+      uses: actions/upload-artifact@v2
+      with:
+        name: openwrt-mvebu-cortexa9-cznic_turris-omnia-initramfs-kernel.bin
+        path: bin/targets/mvebu/cortexa9/openwrt-mvebu-cortexa9-cznic_turris-omnia-initramfs-kernel.bin
+
+    - name: Store kernel
+      uses: actions/upload-artifact@v2
+      with:
+        name: openwrt-mvebu-cortexa9-cznic_turris-omnia-kernel.bin
+        path: bin/targets/mvebu/cortexa9/openwrt-mvebu-cortexa9-cznic_turris-omnia-kernel.bin
+
+    - name: Store sysupgrade
+      uses: actions/upload-artifact@v2
+      with:
+        name: openwrt-mvebu-cortexa9-cznic_turris-omnia-sysupgrade.img.gz
+        path: bin/targets/mvebu/cortexa9/openwrt-mvebu-cortexa9-cznic_turris-omnia-sysupgrade.img.gz
+
+    - name: Store manifest
+      uses: actions/upload-artifact@v2
+      with:
+        name: openwrt-mvebu-cortexa9-cznic_turris-omnia.manifest
+        path: bin/targets/mvebu/cortexa9/openwrt-mvebu-cortexa9-cznic_turris-omnia.manifest
+
+    # store packages
+    - name: Generate specific packages archive
+      run: tar -czf /tmp/packages-specific.tar.gz bin/targets/mvebu/cortexa9/packages/
+    - name: Store specific packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-specific.tar.gz
+        path: /tmp/packages-specific.tar.gz
+
+    - name: Generate base packages archive
+      run: tar -czf /tmp/packages-base.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/base/
+    - name: Store base packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-base.tar.gz
+        path: /tmp/packages-base.tar.gz
+
+    - name: Generate main packages archive
+      run: tar -czf /tmp/packages-main.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/packages/
+    - name: Store main packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-main.tar.gz
+        path: /tmp/packages-main.tar.gz
+
+    - name: Generate Luci packages archive
+      run: tar -czf /tmp/packages-luci.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/luci/
+    - name: Store Luci packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-luci.tar.gz
+        path: /tmp/packages-luci.tar.gz
+
+    - name: Generate freifunk packages archive
+      run: tar -czf /tmp/packages-freifunk.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/freifunk/
+    - name: Store freifunk packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-freifunk.tar.gz
+        path: /tmp/packages-freifunk.tar.gz
+
+    - name: Generate routing packages archive
+      run: tar -czf /tmp/packages-routing.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/routing/
+    - name: Store routing packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-routing.tar.gz
+        path: /tmp/packages-routing.tar.gz
+
+    - name: Generate telephony packages archive
+      run: tar -czf /tmp/packages-telephony.tar.gz bin/packages/arm_cortex-a9_vfpv3-d16/routing/
+    - name: Store telephony packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages-telephony.tar.gz
+        path: /tmp/packages-telephony.tar.gz
+
+    # store config files
+    - name: Store version info file
+      uses: actions/upload-artifact@v2
+      with:
+        name: version.buildinfo
+        path: bin/targets/mvebu/cortexa9/version.buildinfo
+
+    - name: Store config info files
+      uses: actions/upload-artifact@v2
+      with:
+        name: config.buildinfo
+        path: bin/targets/mvebu/cortexa9/config.buildinfo
+
+    - name: Store feeds info files
+      uses: actions/upload-artifact@v2
+      with:
+        name: feeds.buildinfo
+        path: bin/targets/mvebu/cortexa9/feeds.buildinfo
+
+    # store checksums
+    - name: Store checksums
+      uses: actions/upload-artifact@v2
+      with:
+        name: sha256sums
+        path: bin/targets/mvebu/cortexa9/sha256sums
